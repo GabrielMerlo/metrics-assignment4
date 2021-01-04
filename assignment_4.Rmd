@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align =
 
 ```{r include_packages, results = "hide"}
 # install (if missing) packages
-list_packages <- c("dplyr", "tidyr")
+list_packages <- c("dplyr", "tidyr", "quantreg")
 new_packages <- list_packages[!(list_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 
@@ -65,7 +65,9 @@ Controlling by observable characteristics of the individuals, the log of duratio
 
 # Exercise 2
 
-## (a) ) Suppose now that (1) holds with "i independent of Di and Xi: What is the corresponding
-quantile regression of Y given Xi
-; Di associated to (1)? How would you test (visually) the
-previous independence assumption using quantile regression
+## (a) Suppose now that (1) holds with "i independent of Di and Xi: What is the corresponding quantile regression of Y given Xi; Di associated to (1)? How would you test (visually) the previous independence assumption using quantile regression?
+
+```{r}
+
+```
+
