@@ -27,7 +27,7 @@ sapply(list_packages, require, character.only = TRUE)
 
 # Exercise 1
 
-## (a) Read the data (`Penn<- as.data.frame(read.table("penn_jae.dat", header=T))`); and estimate the ATE using the standard difference of sample means and a linear regression using as controls.
+## (a) Read the data (`Penn<- as.data.frame(read.table("penn_jae.dat", header=T))`); and estimate the ATE using the standard difference of sample means and a linear regression using controls.
 
 ` ` 
 
@@ -62,4 +62,10 @@ The difference in the mean of log of duration of unemployment between treated an
 
 Controlling by observable characteristics of the individuals, the log of duration of unemployment is `r round(abs(ate$coefficients[2]), 2)` smaller for the individuals that receive the treatment. Once we control by our vector of observables `x`, the effect of the treatment is `r round(abs(diff_mean) - abs(ate$coefficients[2]), 2)` smaller than when comparing using the difference of means (without controls). 
 
-whatever at the end
+
+# Exercise 2
+
+## (a) ) Suppose now that (1) holds with "i independent of Di and Xi: What is the corresponding
+quantile regression of Y given Xi
+; Di associated to (1)? How would you test (visually) the
+previous independence assumption using quantile regression
