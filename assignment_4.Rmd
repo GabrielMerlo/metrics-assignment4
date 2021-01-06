@@ -17,17 +17,14 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align =
 
 ```{r include_packages, results = "hide"}
 # install packages (if missing)
-list_packages <- c("dplyr", "MatchIt", "tidyr")
+list_packages <- c("dplyr", "glmnet", "tidyr")
 new_packages <- list_packages[!(list_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 
 # Load packages
 sapply(list_packages, require, character.only = TRUE)
 ```
-
-
-```{r include_packages, results = "hide"}
-```
+` `
 
 # Exercise 1
 
@@ -35,7 +32,7 @@ sapply(list_packages, require, character.only = TRUE)
 
 ` ` 
 
-```{r 1a, tidy = TRUE, tidy.opts = list(width.cutoff = 80)}
+```{r part_1a, tidy = TRUE, tidy.opts = list(width.cutoff = 80)}
 # Load data
 penn <- as.data.frame(read.table("penn_jae.dat", header = TRUE))
 
@@ -72,9 +69,9 @@ penn4 %>%
 
 ` `
 
-The difference in the mean of log of duration of unemployment between treated and control groups is `r round(diff_mean, 2)`. This implies that those that receive the treatment spend less time being unemployed than those who don't get the treatment. 
+The difference in the mean of log of duration of unemployment between treated and control groups is `r round(diff_mean, 3)`. This implies that those that receive the treatment spend less time being unemployed than those who don't get the treatment. 
 
-Controlling by observable characteristics of the individuals, the log of duration of unemployment is `r round(abs(ate$coefficients[2]), 2)` smaller for the individuals that receive the treatment. Once we control by our vector of observables `x`, the effect of the treatment is `r round(abs(diff_mean) - abs(ate$coefficients[2]), 2)` smaller than when comparing using the difference of means (without controls). 
+Controlling by observable characteristics of the individuals, the log of duration of unemployment is `r round(abs(ate$coefficients[2]), 3)` smaller for the individuals that receive the treatment. Once we control by our vector of observables `x`, the effect of the treatment is `r round(abs(diff_mean) - abs(ate$coefficients[2]), 3)` smaller than when comparing using the difference of means (without controls). 
 
 Ideally, randomization should balance the distribution of covariates among treated and untreated. One way to check if this is true is by calculating the sample mean difference in covariates between treatment and control groups. The balance is in general quite good but some characteristics are still not very well balanced (we could test if the differences are significant). This can explain the difference in the ATE by the two previous methods.
 
@@ -84,35 +81,37 @@ Ideally, randomization should balance the distribution of covariates among treat
 
 ` `
 
-Randomization is used to assure that the participation in the treatment is the only differentiating factor between individuals in both groups. Propensity score matching can be used to evaluate if the randomization process was correctly done by comparing the outcome variable for similar individuals in the treatment group and the ones in the control group. 
-
-Matching propensity scores allows to compare similar individuals in and outside the treatment group. By calculating the probability of participation, matching individuals with same probability but in different groups can be used to calculate ATE. However, two assuptions are used in this case: 
-
-1- Bias is only on observables. 
-2- Treatment and control groups have a common support. 
-
-The second assumption can be solved by restricting the sample to a common support. We will use the `MatchIt` package to do the propensity score matching. The algorithm method selected for matching is the nearest neighbor method (it matches individuals with the closest propensity score from the other group).
-
-```{r 1_b}
-# Match observations
-match <- matchit(
-  as.formula(paste("tg ~ ", paste(x, collapse = "+"))),
-  method = "nearest", 
-  link = "probit", 
-  replace = TRUE,
+```{r part1_b}
+penn4_ps <- glm(
+  as.formula(paste("tg ~", paste(x, collapse = " + "))),
+  family = binomial(link = "probit"), 
   data = penn4)
-summary(match)
-
-# Dataframe with only matched observations
-penn4m <- match.data(match)
-dim(penn4m)
-
-# ATE from difference of sample means from matched data
-diff_mean_matched <- penn4m %>% 
-  group_by(tg) %>% 
-  summarize(mean = mean(l_inuidur1)) %>%
-  spread(tg, mean) %>% 
-  summarize(diff = `1` - `0`)
-diff_mean_matched
+summary(penn4_ps)
 ```
+` `
 
+## (c) Estimate the ATE by DML based on Lasso.
+
+` ` 
+
+```{r part1_c}
+# Defining Double Debiased Machine Learning function (DML)
+b_DML <- function(Y,X,D){
+  DML1 <- cv.glmnet(X, Y, alpha = 1)
+  yhat <- predict(DML1, X)
+  res1 <- Y - yhat
+  DML2 <- cv.glmnet(X, D, alpha = 1)
+  Dhat <- predict(DML2, X)
+  res2 <- D - Dhat
+  DML <- lm(res1 ~ 0 + res2)
+  b_DML <- unname(coef(DML))
+  return(b_DML)
+}
+
+# Calculating ATE using DML
+ate_dml <- b_DML(penn4$l_inuidur1, as.matrix(penn4[, x]), penn4$tg)
+ate_dml
+```
+` `
+
+The ATE obtained using DML technique with lasso is `r round(ate_dml, 3)`.
