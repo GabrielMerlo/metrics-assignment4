@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align =
 
 ```{r include_packages, results = "hide"}
 # install packages (if missing)
-list_packages <- c("dplyr", "glmnet", "tidyr")
+list_packages <- c("aod", "dplyr", "glmnet", "tidyr")
 new_packages <- list_packages[!(list_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 
@@ -57,7 +57,7 @@ diff_mean <- penn4 %>%
 diff_mean
 
 # ATE from linear regression with controls
-ate <- lm(as.formula(paste("l_inuidur1 ~ tg +", paste(x, collapse = "+"))), data = penn4)
+ate <- lm(as.formula(paste("l_inuidur1 ~ tg +", paste(x, collapse = " + "))), data = penn4)
 summary(ate)
 
 # Checking balance of covariates
@@ -82,12 +82,27 @@ Ideally, randomization should balance the distribution of covariates among treat
 ` `
 
 ```{r part1_b}
+# Probit model estimation
 penn4_ps <- glm(
   as.formula(paste("tg ~", paste(x, collapse = " + "))),
   family = binomial(link = "probit"), 
   data = penn4)
 summary(penn4_ps)
+
+# Extract coefficients
+penn4_ps_coef <- coef(penn4_ps)
+
+# Extract variance-covariance matrix
+penn4_ps_sigma <- vcov(penn4_ps)
+
+# Testing joint significance (Wald test)
+penn4_ps_wt <- wald.test(Sigma = penn4_ps_sigma, b = penn4_ps_coef, Terms = 2:14)
+penn4_ps_wt
 ```
+To test if randomization was done correctly we can test the joint significance of the covariates on the probability of being treated. If the assignment of the treatment was truly random, no observable characteristic should be significant. To that end, we can apply a Wald test to the vector of coefficients $\theta_0$. 
+
+The test result indicates that we can not reject the null of all coefficients being simultaneously equal to zero for a significance level of 0.05. So far, the evidence is not strong against the success of the randomization process. 
+
 ` `
 
 ## (c) Estimate the ATE by DML based on Lasso.
@@ -95,7 +110,7 @@ summary(penn4_ps)
 ` ` 
 
 ```{r part1_c}
-# Defining Double Debiased Machine Learning function (DML)
+# Joel's Double Debiased Machine Learning function with lasso (DML)
 b_DML <- function(Y,X,D){
   DML1 <- cv.glmnet(X, Y, alpha = 1)
   yhat <- predict(DML1, X)
