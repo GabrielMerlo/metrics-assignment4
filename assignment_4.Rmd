@@ -67,7 +67,26 @@ Controlling by observable characteristics of the individuals, the log of duratio
 
 ## (a) Suppose now that (1) holds with "i independent of Di and Xi: What is the corresponding quantile regression of Y given Xi; Di associated to (1)? How would you test (visually) the previous independence assumption using quantile regression?
 
-```{r}
+```{r 2a}
 
 ```
 
+
+
+## (b) Estimate for a grid of 300 points between $[0.2, 0.8]$ the quantile coefficients of $Y$ given $D$ and $X$ and plot the coefficients. Is the indeppendence of the error a realistic assumption in this application? Interpret the coefficient of treatment in the quantile regressions.
+
+```{r 2b}
+alphagrid <- c(seq(0.2, 0.8, length.out = 300))
+
+rq(as.formula(paste("inuidur1 ~ tg+", x)), data = penn4, tau = alphagrid)
+```
+
+
+## (c) Explain how you would compute bootstrap standard errrors for the QRE estimator. What is the advantage of doing bootstrap for computing standard errors over estimating the asymptotic variance for quantile regression? Compute a bootstrap confidence interval for the mediaan treatment effect.
+
+```{r 2c}
+boot.rq()
+```
+
+
+## (d) How would you allow for quantile treatment effects that vary with some covariates? 
