@@ -41,7 +41,7 @@ penn4 <- penn %>% filter(tg == 0 | tg == 4)
 # Recode treatment variable
 penn4$tg <- recode(penn4$tg, `4` = 1L) 
 
-# Control variables
+# Control variables %>% 
 x <- "female+black+othrace+dep+q2+q3+q4+q5+q6+agelt35+agegt54+durable+lusd+husd"
 
 ## ATE
@@ -67,6 +67,7 @@ Controlling by observable characteristics of the individuals, the log of duratio
 
 ## (a) Suppose now that (1) holds with "i independent of Di and Xi: What is the corresponding quantile regression of Y given Xi; Di associated to (1)? How would you test (visually) the previous independence assumption using quantile regression?
 
+
 ```{r 2a}
 
 ```
@@ -78,14 +79,16 @@ Controlling by observable characteristics of the individuals, the log of duratio
 ```{r 2b}
 alphagrid <- c(seq(0.2, 0.8, length.out = 300))
 
-rq(as.formula(paste("inuidur1 ~ tg+", x)), data = penn4, tau = alphagrid)
+quant <- rq(as.formula(paste("inuidur1 ~ tg+", x)), data = penn4, tau = alphagrid)
+
+plot(quant)
 ```
 
 
 ## (c) Explain how you would compute bootstrap standard errrors for the QRE estimator. What is the advantage of doing bootstrap for computing standard errors over estimating the asymptotic variance for quantile regression? Compute a bootstrap confidence interval for the mediaan treatment effect.
 
 ```{r 2c}
-boot.rq()
+boot.rq(quant, penn4$inuidur1, tau = 0.5)
 ```
 
 
