@@ -49,9 +49,11 @@ x <- c("female", "black", "othrace", "dep", "q2", "q3", "q4", "q5", "q6", "agelt
 penn4$l_inuidur1 <- log(penn4$inuidur1)
 
 # ATE from difference of sample means
-diff_mean <- penn4 %>% 
+penn4_summary <- penn4 %>% 
   group_by(tg) %>% 
-  summarize(mean = mean(l_inuidur1)) %>%
+  summarize(mean = mean(l_inuidur1), sd = sd(l_inuidur1), n = n())
+diff_mean <- penn4_summary %>% 
+  select(tg, mean) %>% 
   spread(tg, mean) %>% 
   summarize(diff = `1` - `0`)
 diff_mean
@@ -130,3 +132,13 @@ ate_dml
 ` `
 
 The ATE obtained using DML technique with lasso is `r round(ate_dml, 3)`.
+
+` `
+
+## (d) Construct 95% CI for the ATE using the previous estimates.
+
+```{r part1_d}
+# CI for difference in means
+diff_mean_ci_lower <- diff_mean - qnorm(0.975) * sqrt()
+```
+
