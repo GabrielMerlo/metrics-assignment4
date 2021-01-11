@@ -54,7 +54,7 @@ penn4_summary <- penn4 %>%
   group_by(tg) %>% 
   summarize(mean = mean(l_inuidur1), sd = sd(l_inuidur1), n = n())
 ate_diff_mean <- penn4_summary %>%
-  select(tg, mean) %>% 
+  dplyr::select(tg, mean) %>% 
   spread(tg, mean) %>% 
   summarize(diff = `1` - `0`)
 (ate_diff_mean <- as.numeric(ate_diff_mean))
@@ -66,7 +66,7 @@ summary(ate_ols)
 # Checking balance of covariates
 penn4 %>%
   group_by(tg) %>%
-  select(x) %>%
+  dplyr::select(x) %>%
   summarise_all(funs(mean(.)))
 ```
 
