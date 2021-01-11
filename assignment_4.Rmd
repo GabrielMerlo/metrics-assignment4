@@ -12,27 +12,28 @@ output: pdf_document
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = "center")
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = "center", tidy.opts = list(width.cutoff = 60),tidy = TRUE)
 ```
 
 ```{r include_packages, results = "hide"}
 # install packages (if missing)
-list_packages <- c("aod", "dplyr", "glmnet", "tidyr")
+list_packages <- c("aod", "dplyr", "glmnet", "quantreg", "tidyr")
 new_packages <- list_packages[!(list_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 
 # Load packages
 sapply(list_packages, require, character.only = TRUE)
 ```
+
 ` `
 
-# Exercise 1
+# Part 1
 
 ## (a) Read the data and estimate the ATE using the standard difference of sample means and a linear regression using as controls X.
 
 ` ` 
 
-```{r part_1a, tidy = TRUE, tidy.opts = list(width.cutoff = 80)}
+```{r part_1a}
 # Load data
 penn <- as.data.frame(read.table("penn_jae.dat", header = TRUE))
 
@@ -52,15 +53,19 @@ penn4$l_inuidur1 <- log(penn4$inuidur1)
 penn4_summary <- penn4 %>% 
   group_by(tg) %>% 
   summarize(mean = mean(l_inuidur1), sd = sd(l_inuidur1), n = n())
+<<<<<<< Updated upstream
 diff_mean <- penn4_summary %>% 
+=======
+ate_diff_mean <- penn4_summary %>%
+>>>>>>> Stashed changes
   select(tg, mean) %>% 
   spread(tg, mean) %>% 
   summarize(diff = `1` - `0`)
-diff_mean
+(ate_diff_mean <- as.numeric(ate_diff_mean))
 
 # ATE from linear regression with controls
-ate <- lm(as.formula(paste("l_inuidur1 ~ tg +", paste(x, collapse = " + "))), data = penn4)
-summary(ate)
+ate_ols <- lm(as.formula(paste0("l_inuidur1 ~ tg + ", paste0(x, collapse = " + "))), data = penn4)
+summary(ate_ols)
 
 # Checking balance of covariates
 penn4 %>%
@@ -71,9 +76,9 @@ penn4 %>%
 
 ` `
 
-The difference in the mean of log of duration of unemployment between treated and control groups is `r round(diff_mean, 3)`. This implies that those that receive the treatment spend less time being unemployed than those who don't get the treatment. 
+The difference in the mean of log of duration of unemployment between treated and control groups is `r round(ate_diff_mean, 3)`. This implies that those that receive the treatment spend less time being unemployed than those who don't get the treatment. 
 
-Controlling by observable characteristics of the individuals, the log of duration of unemployment is `r round(abs(ate$coefficients[2]), 3)` smaller for the individuals that receive the treatment. Once we control by our vector of observables `x`, the effect of the treatment is `r round(abs(diff_mean) - abs(ate$coefficients[2]), 3)` smaller than when comparing using the difference of means (without controls). 
+Controlling by observable characteristics of the individuals, the log of duration of unemployment is `r round(abs(ate_ols$coefficients[2]), 3)` smaller for the individuals that receive the treatment. Once we control by our vector of observables `x`, the effect of the treatment is `r round(abs(ate_diff_mean) - abs(ate_ols$coefficients[2]), 3)` smaller than when comparing using the difference of means (without controls). 
 
 Ideally, randomization should balance the distribution of covariates among treated and untreated. One way to check if this is true is by calculating the sample mean difference in covariates between treatment and control groups. The balance is in general quite good but some characteristics are still not very well balanced (we could test if the differences are significant). This can explain the difference in the ATE by the two previous methods.
 
@@ -86,7 +91,7 @@ Ideally, randomization should balance the distribution of covariates among treat
 ```{r part1_b}
 # Probit model estimation
 penn4_ps <- glm(
-  as.formula(paste("tg ~", paste(x, collapse = " + "))),
+  as.formula(paste0("tg ~", paste0(x, collapse = " + "))),
   family = binomial(link = "probit"), 
   data = penn4)
 summary(penn4_ps)
@@ -98,9 +103,12 @@ penn4_ps_coef <- coef(penn4_ps)
 penn4_ps_sigma <- vcov(penn4_ps)
 
 # Testing joint significance (Wald test)
-penn4_ps_wt <- wald.test(Sigma = penn4_ps_sigma, b = penn4_ps_coef, Terms = 2:14)
+penn4_ps_wt <- wald.test(Sigma = penn4_ps_sigma, b = penn4_ps_coef, Terms = 2:15)
 penn4_ps_wt
 ```
+
+` `
+
 To test if randomization was done correctly we can test the joint significance of the covariates on the probability of being treated. If the assignment of the treatment was truly random, no observable characteristic should be significant. To that end, we can apply a Wald test to the vector of coefficients $\theta_0$. 
 
 The test result indicates that we can not reject the null of all coefficients being simultaneously equal to zero for a significance level of 0.05. So far, the evidence is not strong against the success of the randomization process. 
@@ -112,7 +120,9 @@ The test result indicates that we can not reject the null of all coefficients be
 ` ` 
 
 ```{r part1_c}
-# Joel's Double Debiased Machine Learning function with lasso (DML)
+set.seed(123)
+
+# Double Debiased Machine Learning function with lasso (DML)
 b_DML <- function(Y,X,D){
   DML1 <- cv.glmnet(X, Y, alpha = 1)
   yhat <- predict(DML1, X)
@@ -121,7 +131,9 @@ b_DML <- function(Y,X,D){
   Dhat <- predict(DML2, X)
   res2 <- D - Dhat
   DML <- lm(res1 ~ 0 + res2)
-  b_DML <- unname(coef(DML))
+  DML_coef <- as.numeric(coef(DML))
+  DML_se <- as.numeric(summary(DML)$coefficients["res2","Std. Error"])
+  b_DML <- c(DML_coef, DML_se)
   return(b_DML)
 }
 
@@ -131,14 +143,58 @@ ate_dml
 ```
 ` `
 
+<<<<<<< Updated upstream
 The ATE obtained using DML technique with lasso is `r round(ate_dml, 3)`.
+=======
+The ATE obtained using DML technique with lasso is `r round(ate_dml[1], 3)`.
+>>>>>>> Stashed changes
 
 ` `
 
 ## (d) Construct 95% CI for the ATE using the previous estimates.
 
+<<<<<<< Updated upstream
 ```{r part1_d}
 # CI for difference in means
 diff_mean_ci_lower <- diff_mean - qnorm(0.975) * sqrt()
 ```
 
+=======
+` `
+
+```{r part1_d}
+# CI ATE from difference in means
+
+#Lower
+ate_diff_mean_ci_l <- ate_diff_mean - qnorm(0.975) * sqrt(penn4_summary$sd[1]^2 / penn4_summary$n[1] + penn4_summary$sd[2]^2 / penn4_summary$n[2])
+#Upper
+ate_diff_mean_ci_u <- ate_diff_mean + qnorm(0.975) * sqrt(penn4_summary$sd[2]^2 / penn4_summary$n[2] + penn4_summary$sd[2]^2 / penn4_summary$n[2])
+
+ate_diff_mean_ci <- c(ate_diff_mean_ci_l, ate_diff_mean_ci_u)
+ate_diff_mean_ci
+
+# CI ATE from OLS
+
+#Lower
+ate_ols_ci_l <- as.numeric(ate_ols$coefficients[2] - qnorm(0.975) * summary(ate_ols)$coefficients["tg","Std. Error"])
+#Upper
+ate_ols_ci_u <- as.numeric(ate_ols$coefficients[2] + qnorm(0.975) * summary(ate_ols)$coefficients["tg","Std. Error"])
+
+ate_ols_ci <- c(ate_ols_ci_l, ate_ols_ci_u)
+ate_ols_ci
+
+# CI ATE from DML
+
+#Lower
+ate_dml_ci_l <- ate_dml[1] - qnorm(0.975) * ate_dml[2]
+#Upper
+ate_dml_ci_u <- ate_dml[1] + qnorm(0.975) * ate_dml[2]
+
+ate_dml_ci <- c(ate_dml_ci_l, ate_dml_ci_u)
+ate_dml_ci
+```
+
+
+
+
+>>>>>>> Stashed changes
