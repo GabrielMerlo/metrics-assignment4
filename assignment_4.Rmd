@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align =
 
 ```{r include_packages, results = "hide"}
 # install packages (if missing)
-list_packages <- c("aod", "dplyr", "glmnet", "quantreg", "tidyr")
+list_packages <- c("aod", "dplyr", "glmnet", "lmtest", "MASS", "pracma", "quantreg", "tidyr", "VGAM")
 new_packages <- list_packages[!(list_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 
@@ -76,7 +76,7 @@ The difference in the mean of log of duration of unemployment between treated an
 
 Controlling by observable characteristics of the individuals, the log of duration of unemployment is `r round(abs(ate_ols$coefficients[2]), 3)` smaller for the individuals that receive the treatment. Once we control by our vector of observables `x`, the effect of the treatment is `r round(abs(ate_diff_mean) - abs(ate_ols$coefficients[2]), 3)` smaller than when comparing using the difference of means (without controls). 
 
-Ideally, randomization should balance the distribution of covariates among treated and untreated. One way to check if this is true is by calculating the sample mean difference in covariates between treatment and control groups. The balance is in general quite good but some characteristics are still not very well balanced (we could test if the differences are significant). This can explain the difference in the ATE by the two previous methods.
+Ideally, randomization should balance the distribution of covariates among treated and untreated. One way to check if this is true is by calculating the sample mean difference in covariates between treatment and control groups. The balance is in general quite good but some characteristics are still not very well balanced (we could test if the differences are significantly different from zero). This can explain the difference in the ATE by the two previous methods.
 
 ` `
 
@@ -179,4 +179,109 @@ ate_dml_ci_u <- ate_dml[1] + qnorm(0.975) * ate_dml[2]
 ate_dml_ci <- c(ate_dml_ci_l, ate_dml_ci_u)
 ate_dml_ci
 ```
+` ` 
 
+Each confidence interval is given below:
+
+  - Difference in means: $[$`r round(ate_diff_mean_ci[1], 4)`, `r round(ate_diff_mean_ci[2], 4)`$]$ 
+  
+  - OLS: $[$`r round(ate_ols_ci[1], 4)`, `r round(ate_ols_ci[2], 4)`$]$
+  
+  - DML: $[$`r round(ate_dml_ci[1], 4)`, `r round(ate_dml_ci[2], 4)`$]$
+  
+` `
+
+# Part 2
+
+## (a) Suppose now that (1) holds with "$\varepsilon_i$ independent of $D_i$ and $X_i$. What is the corresponding quantile regression of $Y$ given $X_i$, $D_i$ associated to (1)? How would you test (visually) the previous independence assumption using quantile regression?
+
+` ` 
+
+When using the model $Y_i = \alpha_0 + \tau_0 D_i + \beta'_0 X_i + \epsilon_i$, if we assume independency of $\epsilon_i$, we see that the function $\alpha_0 + \tau_0 D_i + \beta'_0 X_i$ corresponds to the conditional mean effect of the treatment. But when the mean and the median of a distribution do not coincide, the median may be more appropriate to capture the central tendency of the distribution, so the corresponding quantile regression of $Y$ given $X_i, D_i$ is $Y_i = \alpha_0^{(q)} + \tau_0^{(q)} D_i + {\beta'}_0^{(q)} X_i + \epsilon_i^{(q)}$, where $0<q<1$ indicates the proportion of the population having scores below the quantile $q$. If we assume a symmetric distribution, we can consider $q = 0.5$.
+
+To test the initial independence assumption, is enough to plot the coefficients relative to different quantiles and see if they are constant or not. If they are constant, we can say that the assumption is correct, but if not, it means that is necessary to use the quantile regression.
+
+` `
+
+## (b) Estimate for a grid of 300 points between [0.2,0.8] the quantile coeficients of $Y$ given $D$ and $X$ and plot the coeficients (similarly to Figure 1 in Koenker and Xiao). Is the independence of the error a realistic assumption in this application? Interpret the coeficient of treatment in the quantile regressions.
+
+` `
+
+In a randomized experiment, the independence of the error is a valid assumption. In general, perfect randomization is difficult to achieve, which is why checking the robustness of the randomization process becomes relevant. In part 1, we couldn't find strong evidence against the random assignment of the treatment, which is why seems like a plausible assumption.
+
+` `
+
+```{r part2_b, results = 'hide', fig.cap = "Quantile regression coefficient estimations", fig.width = 10, fig.height = 9}
+# Generate sequence for tau parameter
+alphagrid <- c(seq(0.2, 0.8, length.out = 300))
+
+# Run quantile regression for grid of tau
+quant <- rq(as.formula(paste0("l_inuidur1 ~ tg +", paste0(x, collapse = " + "))), data = penn4, tau = alphagrid)
+
+# Plot estimated coefficients (function of tau)
+plot(summary(quant), ols = FALSE)
+```
+
+` `
+
+The unemployment extension benefit has a U shape, meaning that as we move along the income distribution, the treatment has a higher impact on workers, being between the third and sixth quantile where we can observe the highest effect. For workers above the sixth decile of income, the treatment is still significant but it has a smaller impact, until it becomes zero for the highest income workers. 
+
+` `
+
+## (c) Explain how you would compute bootstrap standard errors for the QRE estimator. What is the advantage of doing bootstrap for computing standard errors over estimating the asymptotic variance for quantile regression? Compute a bootstrap confidence interval for the median treatment effect.
+
+```{r part2_c, results = 'hide'}
+# Bootstrap estimation of coefficients for tau = 0.5 using 200 replications
+boot <- boot.rq(penn4[, c("tg", x)], penn4$l_inuidur1, tau = 0.5, R = 200)
+
+# Extracting tg vector 
+boot.tg <- boot$B[, 1]
+
+# Confidence interval for the
+lower.ci <- mean(boot.tg) - abs(quantile(boot.tg, 0.025)) * sd(boot.tg)
+upper.ci <- mean(boot.tg) + abs(quantile(boot.tg, 0.975)) * sd(boot.tg)
+(ci <- c(lower.ci, upper.ci))
+```
+
+` `
+
+## (d) How would you allow for quantile treatment e¤ects that vary with some covariates? Read Escanciano and Goh (2019), and investigate how treatment effects may vary by age using your preferred method.
+
+` ` 
+
+If we need quantile treatment effects that vary with some covariates, is equivalent to allow for the heterogeneity in treatment effects, in which we include interaction terms in a regression model to adapt for it. In our case, we include an interaction between a dummy variable of age ($1$ if younger than 35 years old and $0$ otherwise at the time of the experiment) and treatment indicator and estimate differences in treatment effects between these age groups.
+After that, is possible to plot the estimated differences in treatment effects for each quantile, simmilar to above. The shaded area indicates the union of $90%$ confidence intervals for the estimated difference in treatment effects at each quantile. We conclude that workers younger than 35 tend to exit unemployment as a result of the treatment significantly more quickly than workers 35 and older for nearly all quantiles in the interval $[0.50, 0.80]$, as seen in Escanciano and Goh (2019).
+
+` `
+
+# Part 3
+
+` `
+
+Suppose we observe $X_1,...,X_n$ from a U$[0,\theta]$.
+
+## (a) NTS: $\hat{\theta}_n = max\{X_1,...,X_n\}$
+
+The likelihood function is: $$l(\theta) = \theta^{-n} 1_{(X_{(n)},\infty)}(\theta)$$ 
+Since $l(\theta)$ is strictly decreasing on $(X_{(n)},\infty)$ and is equal zero on $(0, X_{(n)})$, a unique maximum of $l(\theta)$. Hence, MLE of $\theta$ is the largest order statistic $X_{(n)}$.
+
+## (b) NTS: $T_n(\theta) = n(\hat{\theta}_n - \theta) \rightarrow^d -\theta Z$, where $Z \sim exp(1)$
+
+$$P(n(\hat{\theta}_n - \theta) \leq x) = P (\hat{\theta} \leq \dfrac{x}{n} + \theta) = P(X_n \leq \dfrac{x}{n} + \theta) = \bigcap_{i=1}^n \{X_i \leq \dfrac{x}{n} + \theta\} = T_n(\theta) \leq x$$
+$$\bigcap_{i=1}^n \{X_i \leq \dfrac{x}{n} + \theta\} = \prod_{i=1}^{n} P(X_i \leq \dfrac{x}{n} + \theta) = \Big(\dfrac{1}{\theta}(\theta+\dfrac{x}{n})\Big)^n = \Big( 1 + \dfrac{\frac{x}{\theta}}{n}\Big)^n = e^{\frac{x}{\theta}}$$
+
+Hence, $T_n(\theta) = e^{\frac{x}{\theta}} \rightarrow^d -\theta Z$, where $Z \sim exp(1)$.
+
+## (c) NTS: $Pr\Big(n(\hat{\theta}^*_n - \hat{\theta}_n) = 0 \Big) = 1 - (1-\frac{1}{n})^n \rightarrow 1-e^{-1} >0$
+
+  (i) $(1-\frac{1}{n})^n \rightarrow e^{-1}$
+  (ii) $Pr\Big(n(\hat{\theta}^*_n - \hat{\theta}_n) = 0 \Big) = Pr\Big(\hat{\theta}_n = \theta_n\Big) = Pr\Big(X_{(n)}^*= X_{(n)}\Big)$
+    $Pr \Big( X^* = X_{(n)} \; or \; ... \; or \; X_n^* = X_{(n)} \Big) = Pr \Big( \bigcup_{i=1}^n \big\{X_i^* = X_{(n)} \big\} \Big) = 1 - Pr\Big( \bigcap_{i=1}^n \big\{X_i^* \neq X_{(n)} \big\} \Big)$
+  (iii) $Pr\Big( \bigcap_{i=1}^n \big\{X_i^* \neq X_{(n)} \big\} \Big) = \prod_{i=1}^{n} Pr\Big( X_i^* \neq X_{(n)} \Big) = Pr\Big( X_i^* \neq X_{(n)} \Big)^n = 1 - Pr\Big( X_i^* = X_{(n)} \Big)^n = (1-\frac{1}{n})^n$
+  (iv) Putting everything together: $1 - (1 - \frac{1}{n})^n \rightarrow 1 - e^{-1} >0$ 
+  
+## (d) 
+
+$Pr\big(n(\hat{\theta}_n - \theta)=0\big) = Pr(\hat{\theta} = \theta) = Pr\Big(X_{(n)}= \theta\Big) = 0$, since $X_{(n)}$ is continuously distributed.
+
+Hence $\lim_{n\to\infty} Pr\Big(n(\hat{\theta}_n - \theta ) = 0 \Big) \neq \lim_{n\to\infty} Pr\Big(n(\hat{\theta}^*_n - \hat{\theta}_n) = 0 \Big)$
