@@ -237,7 +237,7 @@ boot <- boot.rq(penn4[, c("tg", x)], penn4$l_inuidur1, tau = 0.5, R = 200)
 # Extracting tg vector 
 boot.tg <- boot$B[, 1]
 
-# Confidence interval for the
+# Confidence interval for the median treatment effect
 lower.ci <- mean(boot.tg) - abs(quantile(boot.tg, 0.025)) * sd(boot.tg)
 upper.ci <- mean(boot.tg) + abs(quantile(boot.tg, 0.975)) * sd(boot.tg)
 (ci <- c(lower.ci, upper.ci))
@@ -245,7 +245,7 @@ upper.ci <- mean(boot.tg) + abs(quantile(boot.tg, 0.975)) * sd(boot.tg)
 
 ` `
 
-## (d) How would you allow for quantile treatment e¤ects that vary with some covariates? Read Escanciano and Goh (2019), and investigate how treatment effects may vary by age using your preferred method.
+## (d) How would you allow for quantile treatment effects that vary with some covariates? Read Escanciano and Goh (2019), and investigate how treatment effects may vary by age using your preferred method.
 
 ` ` 
 
@@ -285,3 +285,39 @@ Hence, $T_n(\theta) = e^{\frac{x}{\theta}} \rightarrow^d -\theta Z$, where $Z \s
 $Pr\big(n(\hat{\theta}_n - \theta)=0\big) = Pr(\hat{\theta} = \theta) = Pr\Big(X_{(n)}= \theta\Big) = 0$, since $X_{(n)}$ is continuously distributed.
 
 Hence $\lim_{n\to\infty} Pr\Big(n(\hat{\theta}_n - \theta ) = 0 \Big) \neq \lim_{n\to\infty} Pr\Big(n(\hat{\theta}^*_n - \hat{\theta}_n) = 0 \Big)$
+
+` `
+
+# Part 4
+
+` `
+
+```{r, eval = FALSE}
+# Calling functions
+source("../Assignment_4/Q4.R")
+
+# Parameters
+reps <- 1000
+m <- c(100, 300)
+t <- c(-2, -1, -0.5, -0.25, 0, 0.25, 0.5, 1, 2)
+g <- 2
+b <- 0.25
+s <- 1.5
+k <- 2
+
+for (n in m) {
+  for (tau in t) {
+    b_MC <- MC_unif(reps,n,tau,g,b,s,k)
+  }
+}
+```
+
+` `
+
+In order to compare the empirical size and power performance of the robust LM and the Wald test, we did a Monte Carlo simulation with 1000 repetition of the DML ATE.
+On the Wald test it is necessary to compute the unrestricted model to evaluate the effect, find the coefficients and the variance-covariance matrix, and apply the `wald.test` function. On the other hand, for the LM test, it is necessary to compute the restricted model to find the test values from `lmtest` (defined in file `Q4.R`).
+
+After finding for one of the $\tau_0$, a loop is created to calculate for each of the $\tau$, and for each number of observations (100 and 300).
+A table is plotted to make it easier to compare the test values.
+We also know that asymptoticaly, both tests are equivalent, so with a large value of repetitions, it is indifferent between choosing any of them.
+Remark: Lm test is not consistent under heteroskedasticity that is why we have used formula which is robust to heteroskedasticty.
